@@ -1,0 +1,335 @@
+-- [[ CUBNIT OMNI - DATABASE & CLIPBOARD v28.0 ]] --
+-- Versão: Botão de Encerramento (X) + Launcher Minimalista (Sem Borda)
+
+local Players = game:GetService("Players")
+local Marketplace = game:GetService("MarketplaceService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LP = Players.LocalPlayer
+local PG = LP:WaitForChild("PlayerGui")
+
+-- === CONFIGURAÇÃO DE REMOTES === --
+local Remotes = {
+    Wear = ReplicatedStorage:FindFirstChild("WearAcc") or ReplicatedStorage:FindFirstChild("WearAccessory") or ReplicatedStorage:FindFirstChild("ApplyAsset"),
+    ChangeBody = ReplicatedStorage:FindFirstChild("ChangeCharacterBody"),
+    ChangeColor = ReplicatedStorage:FindFirstChild("ChangeBodyColor")
+}
+
+-- Limpeza de segurança para evitar duplicatas
+if PG:FindFirstChild("CubnitOmni_Final") then PG.CubnitOmni_Final:Destroy() end
+
+-- === CRIAÇÃO DO SCREEN GUI === --
+local sg = Instance.new("ScreenGui")
+sg.Name = "CubnitOmni_Final"
+sg.ResetOnSpawn = false
+sg.IgnoreGuiInset = true
+sg.DisplayOrder = 999 
+sg.Parent = PG
+
+-- Variáveis de controle
+local currentId = nil
+local currentType = nil
+local isBodyPart = false
+
+-- === BOTÃO DE LANÇAMENTO (MINIMALISTA - SÓ O ÍCONE) === --
+local launcher = Instance.new("ImageButton")
+launcher.Name = "Launcher"
+launcher.Size = UDim2.new(0, 80, 0, 80)
+launcher.Position = UDim2.new(0.05, 0, 0.4, 0)
+launcher.BackgroundTransparency = 1 -- REMOVIDO FUNDO
+launcher.Image = "rbxassetid://131165398321519" 
+launcher.BorderSizePixel = 0 -- REMOVIDA BORDA
+launcher.ZIndex = 1000
+launcher.Parent = sg
+
+-- Arrastar (Otimizado para Mobile)
+local dStart, sPos, dragging
+launcher.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        dragging = true; dStart = i.Position; sPos = launcher.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(i)
+    if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        local delta = i.Position - dStart
+        launcher.Position = UDim2.new(sPos.X.Scale, sPos.X.Offset + delta.X, sPos.Y.Scale, sPos.Y.Offset + delta.Y)
+    end
+end)
+launcher.InputEnded:Connect(function() dragging = false end)
+
+-- === INTERFACE PRINCIPAL === --
+local main = Instance.new("Frame")
+main.Name = "MainFrame"
+main.Size = UDim2.new(0, 380, 0, 320)
+main.Position = UDim2.new(0.5, -190, 0.5, -160)
+main.BackgroundColor3 = Color3.fromRGB(10, 11, 13)
+main.BorderSizePixel = 0
+main.Visible = false
+main.ZIndex = 100
+main.Parent = sg
+Instance.new("UICorner", main)
+
+local header = Instance.new("Frame", main)
+header.Size = UDim2.new(1, 0, 0, 40)
+header.BackgroundColor3 = Color3.fromRGB(20, 21, 24)
+header.ZIndex = 101
+Instance.new("UICorner", header)
+
+local title = Instance.new("TextLabel", header)
+title.Size = UDim2.new(1, -80, 1, 0)
+title.Position = UDim2.new(0, 15, 0, 0)
+title.Text = "CUBNIT OMNI DATABASE"
+title.TextColor3 = Color3.fromRGB(0, 255, 100)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.BackgroundTransparency = 1
+title.ZIndex = 102
+
+-- BOTÃO DE FECHAR (X)
+local closeButton = Instance.new("TextButton", header)
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(40, 10, 10)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 50, 50)
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 18
+closeButton.ZIndex = 103
+Instance.new("UICorner", closeButton)
+
+closeButton.MouseButton1Click:Connect(function()
+    sg:Destroy() -- Deleta o script completamente
+end)
+
+-- Páginas (LISTA DE JOGADORES)
+local listPage = Instance.new("ScrollingFrame", main)
+listPage.Size = UDim2.new(1, -20, 1, -60)
+listPage.Position = UDim2.new(0, 10, 0, 50)
+listPage.BackgroundTransparency = 1
+listPage.ScrollBarThickness = 3
+listPage.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 100)
+listPage.ZIndex = 102
+listPage.CanvasSize = UDim2.new(0, 0, 0, 0)
+listPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local listLayout = Instance.new("UIListLayout", listPage)
+listLayout.Padding = UDim.new(0, 6)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local detailPage = Instance.new("Frame", main)
+detailPage.Size = UDim2.new(1, 0, 1, -40)
+detailPage.Position = UDim2.new(0, 0, 0, 40)
+detailPage.BackgroundTransparency = 1
+detailPage.Visible = false
+detailPage.ZIndex = 102
+
+local gridScroll = Instance.new("ScrollingFrame", detailPage)
+gridScroll.Size = UDim2.new(1, -20, 1, -55)
+gridScroll.Position = UDim2.new(0, 10, 0, 5)
+gridScroll.BackgroundTransparency = 1
+gridScroll.ScrollBarThickness = 3
+gridScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 100)
+gridScroll.ZIndex = 103
+gridScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+gridScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local gridLayout = Instance.new("UIGridLayout", gridScroll)
+gridLayout.CellSize = UDim2.new(0, 82, 0, 115)
+gridLayout.CellPadding = UDim2.new(0, 8, 0, 8)
+
+-- === INTERFACE DE CONFIRMAÇÃO === --
+local confirmGui = Instance.new("Frame")
+confirmGui.Name = "ConfirmFrame"
+confirmGui.Size = UDim2.new(0, 240, 0, 180)
+confirmGui.Position = UDim2.new(0.5, -120, 0.5, -90)
+confirmGui.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+confirmGui.BorderSizePixel = 0
+confirmGui.Visible = false
+confirmGui.ZIndex = 2000 
+confirmGui.Parent = sg
+
+Instance.new("UICorner", confirmGui)
+local cStroke = Instance.new("UIStroke", confirmGui)
+cStroke.Color = Color3.fromRGB(0, 255, 100)
+cStroke.Thickness = 3
+
+local cMsg = Instance.new("TextLabel")
+cMsg.Size = UDim2.new(1, -20, 0, 60)
+cMsg.Position = UDim2.new(0, 10, 0, 10)
+cMsg.Text = "Copiando ID para o Clip"
+cMsg.TextColor3 = Color3.new(1, 1, 1)
+cMsg.Font = Enum.Font.GothamBold
+cMsg.TextSize = 16
+cMsg.BackgroundTransparency = 1
+cMsg.ZIndex = 2001
+cMsg.Parent = confirmGui
+
+local confirmBtn = Instance.new("TextButton")
+confirmBtn.Size = UDim2.new(0, 200, 0, 40)
+confirmBtn.Position = UDim2.new(0.5, -100, 0, 80)
+confirmBtn.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+confirmBtn.Text = "COPIAR ID"
+confirmBtn.TextColor3 = Color3.fromRGB(180, 255, 0)
+confirmBtn.Font = Enum.Font.GothamBold
+confirmBtn.TextSize = 22
+confirmBtn.ZIndex = 2002
+confirmBtn.Parent = confirmGui
+Instance.new("UICorner", confirmBtn)
+
+local cancelBtn = Instance.new("TextButton")
+cancelBtn.Size = UDim2.new(0, 200, 0, 40)
+cancelBtn.Position = UDim2.new(0.5, -100, 0, 130)
+cancelBtn.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+cancelBtn.Text = "CANCELAR"
+cancelBtn.TextColor3 = Color3.fromRGB(200, 0, 0)
+cancelBtn.Font = Enum.Font.GothamBold
+cancelBtn.TextSize = 22
+cancelBtn.ZIndex = 2002
+cancelBtn.Parent = confirmGui
+Instance.new("UICorner", cancelBtn)
+
+-- === LÓGICA DE CARDS === --
+
+local function createCard(id, defName, isBody)
+    if not id or id == 0 or id == "" then return end
+
+    local card = Instance.new("TextButton", gridScroll)
+    card.BackgroundColor3 = Color3.fromRGB(22, 23, 27)
+    card.Text = ""
+    card.ZIndex = 104
+    Instance.new("UICorner", card)
+
+    local img = Instance.new("ImageLabel", card)
+    img.Size = UDim2.new(1, -10, 0, 65)
+    img.Position = UDim2.new(0, 5, 0, 5)
+    img.BackgroundTransparency = 1
+    img.Image = "rbxthumb://type=Asset&id=" .. id .. "&w=150&h=150"
+    img.ZIndex = 105
+
+    local t = Instance.new("TextLabel", card)
+    t.Size = UDim2.new(1, -6, 0, 35)
+    t.Position = UDim2.new(0, 3, 1, -45)
+    t.Text = "..."
+    t.TextColor3 = Color3.fromRGB(200, 200, 200)
+    t.TextSize = 7
+    t.TextWrapped = true
+    t.BackgroundTransparency = 1
+    t.ZIndex = 105
+
+    task.spawn(function()
+        local s, info = pcall(function() return Marketplace:GetProductInfo(id) end)
+        t.Text = (s and info) and info.Name or defName
+    end)
+
+    card.MouseButton1Click:Connect(function()
+        currentId = id
+        currentType = defName
+        isBodyPart = isBody or false
+        cMsg.Text = "Copiar ID de: " .. (isBody and "CORPO" or "ITEM")
+        confirmGui.Visible = true
+    end)
+end
+
+-- === FUNÇÃO DE CONFIRMAR - CÓPIA PARA CLIPE === --
+confirmBtn.MouseButton1Click:Connect(function()
+    if not currentId then return end
+    local success = pcall(function()
+        if setclipboard then setclipboard(tostring(currentId)) end
+    end)
+    if success then
+        confirmBtn.Text = "COPIADO!"
+        task.wait(1)
+        confirmBtn.Text = "COPIAR ID"
+    end
+    confirmGui.Visible = false
+end)
+
+cancelBtn.MouseButton1Click:Connect(function()
+    confirmGui.Visible = false
+end)
+
+-- === FUNÇÃO DE INSPEÇÃO === --
+local function inspect(target)
+    listPage.Visible = false
+    detailPage.Visible = true
+    title.Text = "REVERSING: " .. target.Name:upper()
+
+    for _, v in pairs(gridScroll:GetChildren()) do 
+        if v:IsA("TextButton") then v:Destroy() end 
+    end
+
+    local char = target.Character
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            local s, d = pcall(function() return hum:GetAppliedDescription() end)
+            if s and d then
+                createCard(d.Shirt, "Camisa")
+                createCard(d.Pants, "Calça")
+                createCard(d.Face, "Rosto")
+                local bodyParts = {
+                    {d.Head, "Cabeça"}, {d.Torso, "Torso"}, 
+                    {d.LeftArm, "Braço E."}, {d.RightArm, "Braço D."}, 
+                    {d.LeftLeg, "Perna E."}, {d.RightLeg, "Perna D."}
+                }
+                for _, b in ipairs(bodyParts) do createCard(b[1], b[2], true) end
+                for _, a in ipairs(d:GetAccessories(true)) do createCard(a.AssetId, "Acessório") end
+            end
+        end
+    end
+end
+
+-- Botão Voltar
+local bk = Instance.new("TextButton", detailPage)
+bk.Size = UDim2.new(1, -20, 0, 35)
+bk.Position = UDim2.new(0, 10, 1, -40)
+bk.BackgroundColor3 = Color3.fromRGB(30, 31, 35)
+bk.Text = "VOLTAR PARA LISTA"
+bk.TextColor3 = Color3.new(1, 1, 1)
+bk.Font = Enum.Font.Gotham
+bk.ZIndex = 110
+Instance.new("UICorner", bk)
+
+bk.MouseButton1Click:Connect(function() 
+    detailPage.Visible = false 
+    listPage.Visible = true 
+    title.Text = "CUBNIT OMNI DATABASE" 
+end)
+
+-- === ATUALIZAÇÃO DA LISTA DE JOGADORES === --
+local function updateList()
+    for _, v in pairs(listPage:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    local allPlayers = Players:GetPlayers()
+    table.sort(allPlayers, function(a, b) 
+        if a == LP then return true end
+        if b == LP then return false end
+        return a.Name:lower() < b.Name:lower() 
+    end)
+    for _, p in pairs(allPlayers) do
+        local b = Instance.new("TextButton", listPage)
+        b.Size = UDim2.new(1, -8, 0, 35)
+        b.BackgroundColor3 = (p == LP) and Color3.fromRGB(30, 60, 30) or Color3.fromRGB(22, 23, 27)
+        local displayName = (p == LP) and " [VOCÊ] " .. p.DisplayName or "  " .. p.DisplayName
+        b.Text = displayName .. " (@" .. p.Name .. ")"
+        b.TextColor3 = (p == LP) and Color3.fromRGB(0, 255, 150) or Color3.new(1, 1, 1)
+        b.TextXAlignment = Enum.TextXAlignment.Left
+        b.Font = (p == LP) and Enum.Font.GothamBold or Enum.Font.Gotham
+        b.ZIndex = 105
+        Instance.new("UICorner", b)
+        b.MouseButton1Click:Connect(function() inspect(p) end)
+    end
+end
+
+-- Monitorar jogadores
+Players.PlayerAdded:Connect(function() if main.Visible then updateList() end end)
+Players.PlayerRemoving:Connect(function() if main.Visible then updateList() end end)
+
+-- Abrir/Fechar
+launcher.MouseButton1Click:Connect(function()
+    main.Visible = not main.Visible
+    if main.Visible then updateList() end
+    confirmGui.Visible = false
+end)
+
+print("CUBNIT OMNI v28.0 Loaded - Close Button & Minimalist Launcher")

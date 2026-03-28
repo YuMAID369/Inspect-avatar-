@@ -1,5 +1,5 @@
--- [[ CUBNIT OMNI - DATABASE & CLIPBOARD v28.0 ]] --
--- Versão: Botão de Encerramento (X) + Launcher Minimalista (Sem Borda)
+-- [[ CUBNIT OMNI - DATABASE & CLIPBOARD v29.0 ]] --
+-- Versão: Correção de Proporção (Anti-Stretch) + Launcher Minimalista
 
 local Players = game:GetService("Players")
 local Marketplace = game:GetService("MarketplaceService")
@@ -31,14 +31,16 @@ local currentId = nil
 local currentType = nil
 local isBodyPart = false
 
--- === BOTÃO DE LANÇAMENTO (MINIMALISTA - SÓ O ÍCONE) === --
+-- === BOTÃO DE LANÇAMENTO (PROPORÇÃO CORRIGIDA) === --
 local launcher = Instance.new("ImageButton")
 launcher.Name = "Launcher"
-launcher.Size = UDim2.new(0, 80, 0, 80)
+launcher.Size = UDim2.new(0, 90, 0, 90) -- Tamanho equilibrado
 launcher.Position = UDim2.new(0.05, 0, 0.4, 0)
-launcher.BackgroundTransparency = 1 -- REMOVIDO FUNDO
-launcher.Image = "rbxassetid://131165398321519" 
-launcher.BorderSizePixel = 0 -- REMOVIDA BORDA
+launcher.AnchorPoint = Vector2.new(0.5, 0.5) -- Centraliza o eixo para rotação/escala
+launcher.BackgroundTransparency = 1 
+launcher.Image = "rbxassetid://89550558862424" 
+launcher.ScaleType = Enum.ScaleType.Fit -- ESSENCIAL: Mantém a imagem sem achatar
+launcher.BorderSizePixel = 0 
 launcher.ZIndex = 1000
 launcher.Parent = sg
 
@@ -99,7 +101,7 @@ closeButton.ZIndex = 103
 Instance.new("UICorner", closeButton)
 
 closeButton.MouseButton1Click:Connect(function()
-    sg:Destroy() -- Deleta o script completamente
+    sg:Destroy() 
 end)
 
 -- Páginas (LISTA DE JOGADORES)
@@ -332,4 +334,4 @@ launcher.MouseButton1Click:Connect(function()
     confirmGui.Visible = false
 end)
 
-print("CUBNIT OMNI v28.0 Loaded - Close Button & Minimalist Launcher")
+print("CUBNIT OMNI v29.0 Loaded - Fixed Proportions")
